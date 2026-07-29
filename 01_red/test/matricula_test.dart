@@ -77,7 +77,7 @@ void main() {
         sistema.configurarPeriodoMatricula(DateTime(2020, 1, 1), DateTime(2030, 12, 31));
         final e = Estudante(nome: 'João', numeroMatricula: '2024001', situacaoAtiva: true, possuiPendencia: false);
         final disciplinas = List.generate(7, (i) => Disciplina(
-          nome: 'D$i', vagasMaximas: 40, vagasPreenchidas: 0, horario: '${i % 5} 08:00',
+          nome: 'D$i', vagasMaximas: 40, vagasPreenchidas: 0, horario: '08:00',
         ));
         expect(() => sistema.realizarMatricula(e, disciplinas), throwsArgumentError);
       });
