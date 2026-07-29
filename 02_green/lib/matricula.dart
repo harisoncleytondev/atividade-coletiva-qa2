@@ -9,7 +9,11 @@ class Estudante {
     required this.numeroMatricula,
     required this.situacaoAtiva,
     required this.possuiPendencia,
-  });
+  }) {
+    if (nome.trim().isEmpty) {
+      throw ArgumentError('O nome do estudante é obrigatório.');
+    }
+  }
 }
 
 class Disciplina {
@@ -23,7 +27,17 @@ class Disciplina {
     required this.vagasMaximas,
     required this.vagasPreenchidas,
     required this.horario,
-  });
+  }) {
+    if (nome.trim().isEmpty) {
+      throw ArgumentError('O nome da disciplina é obrigatório.');
+    }
+
+    if (vagasMaximas <= 0) {
+      throw ArgumentError(
+        'A disciplina deve possuir um número máximo de vagas maior que zero.',
+      );
+    }
+  }
 }
 
 class SistemaMatriculas {
@@ -37,76 +51,61 @@ class SistemaMatriculas {
   }
 
   void realizarMatricula(Estudante estudante, List<Disciplina> disciplinas) {
-    if (estudante.nome.trim().isEmpty) {
-      throw ArgumentError('O nome do estudante é obrigatório.');
+    final agora = DateTime.now();
+
+    if (_inicioPeriodo == null || _fimPeriodo == null) {
+      throw ArgumentError('O período de matrícula não foi configurado.');
+    }
+    if (agora.isBefore(_inicioPeriodo!) || agora.isAfter(_fimPeriodo!)) {
+      throw ArgumentError('Fora do período oficial de matrícula.');
     }
 
     if (_matriculasRegistradas.contains(estudante.numeroMatricula)) {
-      throw ArgumentError('O número de matrícula do estudante deve ser único.');
+      throw ArgumentError('O estudante já realizou a matrícula no sistema.');
     }
 
     if (!estudante.situacaoAtiva) {
-      throw ArgumentError(
-        'O estudante deve estar com a situação acadêmica ativa.',
-      );
+      throw ArgumentError('Estudante inativo não pode realizar matrícula.');
     }
 
     if (estudante.possuiPendencia) {
       throw ArgumentError(
-        'Estudantes com pendências não podem efetuar novas matrículas.',
+        'Estudante com pendências não pode efetuar novas matrículas.',
       );
-    }
-
-    if (_inicioPeriodo != null && _fimPeriodo != null) {
-      final agora = DateTime.now();
-      if (agora.isBefore(_inicioPeriodo!) || agora.isAfter(_fimPeriodo!)) {
-        throw ArgumentError(
-          'Matrícula permitida apenas durante o período oficial.',
-        );
-      }
-    }
-
-    for (var d in disciplinas) {
-      if (d.nome.trim().isEmpty) {
-        throw ArgumentError('O nome da disciplina é obrigatório.');
-      }
-      if (d.vagasMaximas <= 0) {
-        throw ArgumentError(
-          'Cada disciplina deve possuir um número máximo de vagas.',
-        );
-      }
-    }
-
-    for (var d in disciplinas) {
-      if (d.vagasPreenchidas >= d.vagasMaximas) {
-        throw ArgumentError(
-          'Não é permitido matricular em disciplinas com todas as vagas preenchidas.',
-        );
-      }
     }
 
     if (disciplinas.length > 6) {
       throw ArgumentError(
-        'O estudante pode se matricular em, no máximo, 6 disciplinas por semestre.',
+        'O estudante pode se matricular em no máximo 6 disciplinas.',
       );
     }
 
-    final nomes = disciplinas.map((d) => d.nome.toLowerCase()).toList();
-    if (nomes.toSet().length != nomes.length) {
+    final nomesDisciplinas = disciplinas.map((d) => d.nome).toList();
+    if (nomesDisciplinas.toSet().length != disciplinas.length) {
       throw ArgumentError(
-        'O estudante não pode se matricular na mesma disciplina mais de uma vez.',
+        'Não é permitido se matricular na mesma disciplina mais de uma vez.',
       );
     }
 
-    final horarios = disciplinas.map((d) => d.horario).toList();
-    if (horarios.toSet().length != horarios.length) {
-      throw ArgumentError(
-        'O estudante não pode se matricular em disciplinas com conflito de horários.',
-      );
+    final horariosOcupados = <String>{};
+
+    for (var disciplina in disciplinas) {
+      if (disciplina.vagasPreenchidas >= disciplina.vagasMaximas) {
+        throw ArgumentError(
+          'A disciplina ${disciplina.nome} não possui vagas disponíveis.',
+        );
+      }
+
+      if (horariosOcupados.contains(disciplina.horario)) {
+        throw ArgumentError(
+          'Conflito de horário detectado para a disciplina ${disciplina.nome}.',
+        );
+      }
+      horariosOcupados.add(disciplina.horario);
     }
 
-    for (var d in disciplinas) {
-      d.vagasPreenchidas++;
+    for (var disciplina in disciplinas) {
+      disciplina.vagasPreenchidas++;
     }
 
     _matriculasRegistradas.add(estudante.numeroMatricula);

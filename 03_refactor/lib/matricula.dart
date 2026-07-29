@@ -9,9 +9,11 @@ class Estudante {
     required this.numeroMatricula,
     required this.situacaoAtiva,
     required this.possuiPendencia,
-  });
-
-  bool get valido => nome.trim().isNotEmpty && situacaoAtiva && !possuiPendencia;
+  }) {
+    if (nome.trim().isEmpty) {
+      throw ArgumentError('O nome do estudante é obrigatório.');
+    }
+  }
 }
 
 class Disciplina {
@@ -25,14 +27,20 @@ class Disciplina {
     required this.vagasMaximas,
     required this.vagasPreenchidas,
     required this.horario,
-  });
+  }) {
+    if (nome.trim().isEmpty) {
+      throw ArgumentError('O nome da disciplina é obrigatório.');
+    }
+    if (vagasMaximas <= 0) {
+      throw ArgumentError('A disciplina deve possuir um número máximo de vagas maior que zero.');
+    }
+  }
 
-  bool get nomeValido => nome.trim().isNotEmpty;
-  bool get vagasValidas => vagasMaximas > 0;
   bool get temVaga => vagasPreenchidas < vagasMaximas;
 }
 
 class SistemaMatriculas {
+  static const int _limiteDisciplinas = 6;
   final List<String> _matriculasRegistradas = [];
   DateTime? _inicioPeriodo;
   DateTime? _fimPeriodo;
@@ -42,44 +50,46 @@ class SistemaMatriculas {
     _fimPeriodo = fim;
   }
 
-  void _validarEstudante(Estudante e) {
-    if (e.nome.trim().isEmpty) throw ArgumentError('O nome do estudante é obrigatório.');
-    if (_matriculasRegistradas.contains(e.numeroMatricula)) {
-      throw ArgumentError('O número de matrícula do estudante deve ser único.');
+  void _validarPeriodo() {
+    final inicio = _inicioPeriodo;
+    final fim = _fimPeriodo;
+    if (inicio == null || fim == null) {
+      throw ArgumentError('O período de matrícula não foi configurado.');
     }
-    if (!e.situacaoAtiva) throw ArgumentError('O estudante deve estar com a situação acadêmica ativa.');
-    if (e.possuiPendencia) throw ArgumentError('Estudantes com pendências não podem efetuar novas matrículas.');
+    final agora = DateTime.now();
+    if (agora.isBefore(inicio) || agora.isAfter(fim)) {
+      throw ArgumentError('Fora do período oficial de matrícula.');
+    }
   }
 
-  void _validarPeriodo() {
-    if (_inicioPeriodo != null && _fimPeriodo != null) {
-      final agora = DateTime.now();
-      if (agora.isBefore(_inicioPeriodo!) || agora.isAfter(_fimPeriodo!)) {
-        throw ArgumentError('Matrícula permitida apenas durante o período oficial.');
-      }
+  void _validarEstudante(Estudante e) {
+    if (_matriculasRegistradas.contains(e.numeroMatricula)) {
+      throw ArgumentError('O estudante já realizou a matrícula no sistema.');
+    }
+    if (!e.situacaoAtiva) {
+      throw ArgumentError('Estudante inativo não pode realizar matrícula.');
+    }
+    if (e.possuiPendencia) {
+      throw ArgumentError('Estudante com pendências não pode efetuar novas matrículas.');
     }
   }
 
   void _validarDisciplinas(List<Disciplina> disciplinas) {
-    if (disciplinas.length > 6) {
-      throw ArgumentError('O estudante pode se matricular em, no máximo, 6 disciplinas por semestre.');
+    if (disciplinas.length > _limiteDisciplinas) {
+      throw ArgumentError('O estudante pode se matricular em no máximo $_limiteDisciplinas disciplinas.');
     }
-    for (var d in disciplinas) {
-      if (!d.nomeValido) throw ArgumentError('O nome da disciplina é obrigatório.');
-      if (!d.vagasValidas) throw ArgumentError('Cada disciplina deve possuir um número máximo de vagas.');
-    }
+    final nomes = <String>{};
+    final horarios = <String>{};
     for (var d in disciplinas) {
       if (!d.temVaga) {
-        throw ArgumentError('Não é permitido matricular em disciplinas com todas as vagas preenchidas.');
+        throw ArgumentError('A disciplina ${d.nome} não possui vagas disponíveis.');
       }
-    }
-    final nomes = disciplinas.map((d) => d.nome.toLowerCase()).toList();
-    if (nomes.toSet().length != nomes.length) {
-      throw ArgumentError('O estudante não pode se matricular na mesma disciplina mais de uma vez.');
-    }
-    final horarios = disciplinas.map((d) => d.horario).toList();
-    if (horarios.toSet().length != horarios.length) {
-      throw ArgumentError('O estudante não pode se matricular em disciplinas com conflito de horários.');
+      if (!nomes.add(d.nome)) {
+        throw ArgumentError('Não é permitido se matricular na mesma disciplina mais de uma vez.');
+      }
+      if (!horarios.add(d.horario)) {
+        throw ArgumentError('Conflito de horário detectado para a disciplina ${d.nome}.');
+      }
     }
   }
 
@@ -90,8 +100,8 @@ class SistemaMatriculas {
   }
 
   void realizarMatricula(Estudante estudante, List<Disciplina> disciplinas) {
-    _validarEstudante(estudante);
     _validarPeriodo();
+    _validarEstudante(estudante);
     _validarDisciplinas(disciplinas);
     _ocuparVagas(disciplinas);
     _matriculasRegistradas.add(estudante.numeroMatricula);
